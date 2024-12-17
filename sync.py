@@ -5,8 +5,6 @@ import bluetooth
 from watchdog.observers import Observer 
 from watchdog.events import FileSystemEventHandler 
 
-
-
 class SyncHandler(FileSystemEventHandler):
     def __init__(self, target_folder, remote_device):
         self.target_folder = target_folder
