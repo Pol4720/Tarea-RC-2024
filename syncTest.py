@@ -13,17 +13,26 @@ class SyncHandler(FileSystemEventHandler):
         self.client = None
 
     def on_created(self, event):
-        if not event.is_directory:
+        if event.is_directory:
+            print(f"Carpeta creada: {event.src_path}")
+            asyncio.run(self.sync_folder(event.src_path))
+        else:
             print(f"Archivo creado: {event.src_path}")
             asyncio.run(self.sync_file(event.src_path))
 
     def on_modified(self, event):
-        if not event.is_directory:
+        if event.is_directory:
+            print(f"Carpeta modificada: {event.src_path}")
+            asyncio.run(self.sync_folder(event.src_path))
+        else:
             print(f"Archivo modificado: {event.src_path}")
             asyncio.run(self.sync_file(event.src_path))
 
     def on_deleted(self, event):
-        if not event.is_directory:
+        if event.is_directory:
+            print(f"Carpeta eliminada: {event.src_path}")
+            self.delete_folder(event.src_path)
+        else:
             print(f"Archivo eliminado: {event.src_path}")
             self.delete_file(event.src_path)
 
@@ -34,12 +43,35 @@ class SyncHandler(FileSystemEventHandler):
             os.remove(target_file)
             print(f"Archivo eliminado en destino: {target_file}")
 
+    def delete_folder(self, folder_path):
+        """Elimina una carpeta en la carpeta de destino."""
+        target_folder = os.path.join(self.target_folder, os.path.basename(folder_path))
+        if os.path.exists(target_folder):
+            shutil.rmtree(target_folder)
+            print(f"Carpeta eliminada en destino: {target_folder}")
+
     async def sync_file(self, file_path):
         """Sincroniza un archivo nuevo o modificado."""
         target_file = os.path.join(self.target_folder, os.path.basename(file_path))
         shutil.copy2(file_path, target_file)
         print(f"Sincronizando archivo: {file_path} a {target_file}")
         await self.send_file_via_bluetooth(target_file)
+
+    async def sync_folder(self, folder_path):
+        """Sincroniza una carpeta nueva o modificada."""
+        target_folder = os.path.join(self.target_folder, os.path.basename(folder_path))
+        if not os.path.exists(target_folder):
+            os.makedirs(target_folder)
+        for root, dirs, files in os.walk(folder_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                target_file_path = os.path.join(target_folder, os.path.relpath(file_path, folder_path))
+                target_file_dir = os.path.dirname(target_file_path)
+                if not os.path.exists(target_file_dir):
+                    os.makedirs(target_file_dir)
+                shutil.copy2(file_path, target_file_path)
+                print(f"Sincronizando archivo: {file_path} a {target_file_path}")
+                await self.send_file_via_bluetooth(target_file_path)
 
     async def send_file_via_bluetooth(self, file_path):
         """Envía un archivo a través de Bluetooth."""
